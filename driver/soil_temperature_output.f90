@@ -164,6 +164,20 @@ contains
       iret = nf90_put_att(ncid, varid, "long_name", "calculated - theoretical temperature")
        if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev4 long name")
 
+    iret = nf90_def_var(ncid, "energy_balance",            NF90_DOUBLE, time_dim, varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define  variable")
+      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
+       if (iret /= nf90_noerr) call handle_err(iret,"define  attribute")
+      iret = nf90_put_att(ncid, varid, "long_name", "soil column energy balance")
+       if (iret /= nf90_noerr) call handle_err(iret,"define energy_balance long name")
+
+    iret = nf90_def_var(ncid, "bottom_flux",            NF90_DOUBLE, time_dim, varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define bottom_flux variable")
+      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
+       if (iret /= nf90_noerr) call handle_err(iret,"define bottom_flux attribute")
+      iret = nf90_put_att(ncid, varid, "long_name", "soil bottom energy flux (+down)")
+       if (iret /= nf90_noerr) call handle_err(iret,"define bottom_flux long name")
+
     iret = nf90_enddef(ncid)
      if (iret /= nf90_noerr) call handle_err(iret,"ending define mode")
   
@@ -175,7 +189,9 @@ contains
                             thermal_conductivity, &
                             heat_capacity,        &
                             ground_heat,          &
-                            theoretical_temperature)!,          &
+                            theoretical_temperature,&
+                            energy_balance,       &
+                            bottom_flux)!,          &
                            ! soil_interface_flux)
 
     implicit none
@@ -183,6 +199,8 @@ contains
      integer                :: nsoil
      real                   :: temperature_ground
      real                   :: ground_heat
+     real                   :: energy_balance
+     real                   :: bottom_flux
      real, dimension(nsoil) :: temperature_soil
      real, dimension(nsoil) :: thermal_conductivity
      real, dimension(nsoil) :: heat_capacity
@@ -283,6 +301,16 @@ contains
       if (iret /= nf90_noerr) call handle_err(iret,"inquire theory_lev4 variable")
      iret = nf90_put_var(ncid, varid,  theoretical_temperature(4),     start=(/itime+1/))
       if (iret /= nf90_noerr) call handle_err(iret,"put theory_lev4 variable")
+  
+     iret = nf90_inq_varid(ncid, "energy_balance", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire energy_balance variable")
+     iret = nf90_put_var(ncid, varid, energy_balance ,     start=(/itime+1/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put energy_balance variable")
+
+     iret = nf90_inq_varid(ncid, "bottom_flux", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire bottom_flux variable")
+     iret = nf90_put_var(ncid, varid, bottom_flux ,     start=(/itime+1/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put bottom_flux variable")
   
   if(itime>0) then
      iret = nf90_inq_varid(ncid, "diff_lev1", varid)

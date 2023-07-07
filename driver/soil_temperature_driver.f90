@@ -109,6 +109,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real    :: period_daily  = 3600.0 * 24
   real    :: period_annual = 3600.0*24*365
   real, parameter :: pi = 3.14159265
+  real    :: storage_before, storage_after, bottom_flux, energy_balance
 
 !---------------------------------------------------------------------
 !  parameters
@@ -246,7 +247,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 !---------------------------------------------------------------------
 
   call initialize_output(output_filename, ntime+1, nsoil)
-  call add_to_output(0,nsoil,tg,stc(1:4),df(1:4),hcpct(1:4),ssoil, theoretical_temperature)
+  call add_to_output(0,nsoil,tg,stc(1:4),df(1:4),hcpct(1:4),ssoil, &
+                       theoretical_temperature,energy_balance, bottom_flux)
 
 !---------------------------------------------------------------------
 ! start the time loop
@@ -255,7 +257,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   do itime = 1, ntime
   
     simulation_time = itime * dt
-   
+    
   !---------------------------------------------------------------------
   ! calculate the surface temperature
   !---------------------------------------------------------------------
@@ -275,7 +277,11 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
                          df      ,hcpct   ,snicev  ,snliqv  ,epore   ,          & !out
                          fact    )                                                !out
 
+    storage_before = sum( hcpct(1:4) * stc(1:4) * dzsnso(1:4) )
+   
     ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
+    
+    bottom_flux = df(nsoil)/(6.5) * (stc(nsoil)-tbot)
     
     damp_depth_daily  = sqrt(period_daily*df(1)/hcpct(1)/pi)
     damp_depth_annual = sqrt(period_annual*df(1)/hcpct(1)/pi)
@@ -290,6 +296,10 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
                   tg        ,iloc    ,jloc    ,                            & !in
                   stc       ,errmsg  ,errflg     )                           !inout
 
+    storage_after = sum( hcpct(1:4) * stc(1:4) * dzsnso(1:4) )
+    
+    energy_balance = storage_after - storage_before - ssoil * dt + bottom_flux * dt
+
   !---------------------------------------------------------------------
   ! accumulate some fields and error checks
   !---------------------------------------------------------------------
@@ -299,7 +309,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   ! add to output file
   !---------------------------------------------------------------------
 
-    call add_to_output(itime,nsoil,tg,stc(1:4),df(1:4),hcpct(1:4),ssoil, theoretical_temperature)
+    call add_to_output(itime,nsoil,tg,stc(1:4),df(1:4),hcpct(1:4),ssoil, &
+                       theoretical_temperature,energy_balance, bottom_flux)
    
   end do ! time loop
 

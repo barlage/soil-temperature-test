@@ -3,7 +3,7 @@
 .SUFFIXES:
 .SUFFIXES: .o .f90
 
-include ../user_build_options
+include ../user_build_config
 
 OBJS = \
 	../src/soil_temperature_routines.o \

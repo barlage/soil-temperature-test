@@ -3,7 +3,7 @@
 .SUFFIXES:
 .SUFFIXES: .o .f90
 
-all: user_build_options
+all: user_build_config
 	(cd src;		make)
 	(cd driver;		make)
 	(cd run;		make)

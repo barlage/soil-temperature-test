@@ -1,0 +1,18 @@
+=========================================
+
+Steps to running model:
+
+1. Configure environment and build
+
+  a. edit user_build_config, need Fortran compiler and NetCDF library 
+    
+  b. make
+  
+2. Change setup in namelist.input in run/
+
+3. Run soil_temperature.exe in run/
+
+4. Output in output.nc
+
+=========================================
+

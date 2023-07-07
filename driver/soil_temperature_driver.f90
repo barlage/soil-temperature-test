@@ -206,6 +206,19 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, opt_tbot, opt_stc
 !---------------------------------------------------------------------
 
   smc       = sh2o + sice  ! initial volumetric soil water
+
+  do iz = 1, nsoil
+    if(smc(iz) > parameters%smcmax(iz)) then  ! adjust if oversaturated
+      print*, "adjusting oversaturation in level: ",iz
+      print*, "  old smc: ",smc(iz)
+      print*, "  porosity: ",parameters%smcmax(iz)
+      sh2o(iz) = sh2o(iz) * parameters%smcmax(iz) / smc(iz)
+      sice(iz) = sice(iz) * parameters%smcmax(iz) / smc(iz)
+      smc(iz)  = sh2o(iz) + sice(iz)
+      print*, "  new smc: ",smc(iz)
+    end if
+  end do
+
   tg        = temperature_mean
   isnow     = 0            !
   snowh     = 0.0          !

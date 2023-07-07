@@ -5,7 +5,7 @@
 program soil_temperature
 
 use output
-use routines, only: tsnosoi, thermoprop, noahmp_parameters, opt_tbot, opt_stc
+use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 
   implicit none
 
@@ -175,8 +175,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, opt_tbot, opt_stc
 !  transfer options
 !---------------------------------------------------------------------
 
-  opt_tbot = bottom_temperature_option
-  opt_stc  = soil_boundary_condition_option
+  call noahmp_options(bottom_temperature_option, soil_boundary_condition_option)
 
 !---------------------------------------------------------------------
 !  read input file, part 2: initialize

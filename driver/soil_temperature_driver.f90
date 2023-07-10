@@ -33,6 +33,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real, allocatable, dimension(:) :: sice    ! soil ice content [m3/m3]
   real, allocatable, dimension(:) :: sh2o    ! soil liquid water content [m3/m3]
   real, allocatable, dimension(:) :: stc     ! soil temperature [K]
+  logical :: initial_theory                  ! initial with theoretical temperature
   logical :: initial_uniform                 ! initial all levels the same
   real    :: initial_sh2o_value              ! constant sh2o value
   real    :: initial_sice_value              ! constant sice value
@@ -51,7 +52,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   namelist / forcing         / temperature_mean, temperature_amplitude_daily, &
                                temperature_amplitude_annual
   namelist / structure       / isltyp,nsoil,nsnow,structure_option,soil_depth,tbot
-  namelist / fixed_initial   / zsoil,dzsnso,sice,sh2o,stc
+  namelist / fixed_initial   / zsoil,dzsnso,sice,sh2o,stc,initial_theory
   namelist / uniform_initial / initial_uniform,initial_sh2o_value,&
                                initial_sice_value,initial_stc_value
   namelist / soil_parameters / qtz,maxsmc,csoil_data,zbot_data
@@ -199,6 +200,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     sh2o = initial_sh2o_value
     sice = initial_sice_value
     stc  = initial_stc_value
+    if(initial_theory) print*, "uniform temperature ICs will be replaced with theoretical"
   end if
 
 !---------------------------------------------------------------------
@@ -232,6 +234,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   df        = -999.0
   hcpct     = -999.0
   theoretical_temperature = -999.0
+  simulation_time = 0.0
   
   ntime      =  nint(maxtime * 3600.0 / dt)
 
@@ -241,6 +244,22 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   do iz = 2, nsoil
     node_depth(iz) = 0.5*(zsoil(iz-1) + zsoil(iz))
   end do
+
+  if(initial_theory) then
+    call thermoprop (parameters  ,nsoil   ,nsnow   ,isnow   ,ist     ,dzsnso  , & !in
+                         dt      ,snowh   ,snice   ,snliq   ,                   & !in
+                         smc     ,sh2o    ,tg      ,stc     ,ur      ,          & !in
+                         lat     ,z0m     ,zlvl    ,vegtyp  ,                   & !in
+                         df      ,hcpct   ,snicev  ,snliqv  ,epore   ,          & !out
+                         fact    )                                                !out
+
+    damp_depth_daily  = sqrt(period_daily*df(1)/hcpct(1)/pi)
+    damp_depth_annual = sqrt(period_annual*df(1)/hcpct(1)/pi)
+
+    stc = temperature_mean + &
+          temperature_amplitude_daily  * exp(node_depth/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + node_depth/damp_depth_daily) + &
+          temperature_amplitude_annual * exp(node_depth/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + node_depth/damp_depth_annual)
+  end if
 
 !---------------------------------------------------------------------
 ! create output file and add initial values

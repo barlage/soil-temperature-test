@@ -25,6 +25,7 @@
  sice      =  0.0  ,  0.0  ,  0.0  ,  0.0    ! initial soil ice profile [vol]
  sh2o      =  0.3  ,  0.3  ,  0.3  ,  0.3    ! initial soil liquid profile [vol]
  stc       =  300.0,  300.0,  300.0,  300.0  ! initial soil temperature [K]
+ initial_theory    = .true.                  ! initial with theoretical temperature
 /
 
 &uniform_initial

@@ -1,7 +1,8 @@
-&timing ! and output
+&timing ! and output and solution method
   dt              = 3600.0         ! timestep [seconds]
   maxtime         = 26280          ! total simulation time [hours]
   output_filename = "output.nc"
+  solution_method = 1              ! 0 = noahmp; 1 = standard diffusion eqn
 /
 
 &forcing

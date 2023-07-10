@@ -5,7 +5,7 @@
 program soil_temperature
 
 use output
-use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
+use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options, rosr12
 
   implicit none
 
@@ -16,6 +16,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real          :: dt
   integer       :: maxtime
   character*256 :: output_filename
+  integer       :: solution_method
   real          :: temperature_mean
   real          :: temperature_amplitude_daily
   real          :: temperature_amplitude_annual
@@ -48,7 +49,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real                :: csoil_data  ! soil heat capacity
   real                ::  zbot_data  ! deep soil temperature depth
      
-  namelist / timing          / dt,maxtime,output_filename
+  namelist / timing          / dt,maxtime,output_filename,solution_method
   namelist / forcing         / temperature_mean, temperature_amplitude_daily, &
                                temperature_amplitude_annual
   namelist / structure       / isltyp,nsoil,nsnow,structure_option,soil_depth,tbot
@@ -104,7 +105,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   integer :: simulation_time    ! total time into simulation
   integer :: ntime      = 0     ! number of timesteps to run
   real, allocatable, dimension(:) :: theoretical_temperature   ! estimate T from diffusion solution
-  real, allocatable, dimension(:) :: node_depth                ! calculation node depth
+  real, allocatable, dimension(:) :: depth_node                ! calculation node depth
   real    :: damp_depth_daily
   real    :: damp_depth_annual
   real    :: period_daily  = 3600.0 * 24
@@ -156,7 +157,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   allocate (fact  (-nsnow+1:nsoil))   !snow/soil layer thickness [m]
   
   allocate (theoretical_temperature (1:nsoil))   !estimate T from diffusion solution [K]
-  allocate (node_depth (1:nsoil))                !calculation node depth [m]
+  allocate (depth_node (1:nsoil))                !calculation node depth [m]
 
   allocate (parameters%quartz(nsoil))
   allocate (parameters%smcmax(nsoil))
@@ -240,9 +241,9 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 
   zsnso      = 0.0
   zsnso(1:nsoil) = zsoil
-  node_depth(1) = 0.5 * zsoil(1)
+  depth_node(1) = 0.5 * zsoil(1)
   do iz = 2, nsoil
-    node_depth(iz) = 0.5*(zsoil(iz-1) + zsoil(iz))
+    depth_node(iz) = 0.5*(zsoil(iz-1) + zsoil(iz))
   end do
 
   if(initial_theory) then
@@ -257,8 +258,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     damp_depth_annual = sqrt(period_annual*df(1)/hcpct(1)/pi)
 
     stc = temperature_mean + &
-          temperature_amplitude_daily  * exp(node_depth/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + node_depth/damp_depth_daily) + &
-          temperature_amplitude_annual * exp(node_depth/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + node_depth/damp_depth_annual)
+          temperature_amplitude_daily  * exp(depth_node/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_node/damp_depth_daily) + &
+          temperature_amplitude_annual * exp(depth_node/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_node/damp_depth_annual)
   end if
 
 !---------------------------------------------------------------------
@@ -306,15 +307,24 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     damp_depth_annual = sqrt(period_annual*df(1)/hcpct(1)/pi)
 
     theoretical_temperature = temperature_mean + &
-         temperature_amplitude_daily  * exp(node_depth/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + node_depth/damp_depth_daily) + &
-         temperature_amplitude_annual * exp(node_depth/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + node_depth/damp_depth_annual)
+         temperature_amplitude_daily  * exp(depth_node/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_node/damp_depth_daily) + &
+         temperature_amplitude_annual * exp(depth_node/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_node/damp_depth_annual)
 
-    call tsnosoi (parameters,ice     ,nsoil   ,nsnow   ,isnow   ,ist     , & !in
+    if(solution_method == 0) then
+
+      call tsnosoi (parameters,ice     ,nsoil   ,nsnow   ,isnow   ,ist     , & !in
                   tbot      ,zsnso   ,ssoil   ,df      ,hcpct   ,          & !in
                   sag       ,dt      ,snowh   ,dzsnso  ,                   & !in
                   tg        ,iloc    ,jloc    ,                            & !in
                   stc       ,errmsg  ,errflg     )                           !inout
 
+    elseif(solution_method == 1) then
+
+      call diffusion_implicit(nsoil, zsnso, dt, tbot, parameters%zbot, &
+                              df, hcpct, tg, stc)
+    
+    end if
+    
     storage_after = sum( hcpct(1:4) * stc(1:4) * dzsnso(1:4) )
     
     energy_balance = storage_after - storage_before - ssoil * dt + bottom_flux * dt
@@ -336,3 +346,55 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   call finalize_output()
    
 end program
+
+subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
+
+  implicit none
+  
+  integer               , intent(in)    :: nsoil
+  real, dimension(nsoil), intent(in)    :: zsnso  !< thickness of snow/soil layers [m]
+  real                  , intent(in)    :: dt     !< time step [s]
+  real                  , intent(in)    :: tbot   !< 
+  real                  , intent(in)    :: zbot   !< 
+  real, dimension(nsoil), intent(in)    :: df     !< thermal conductivity
+  real, dimension(nsoil), intent(in)    :: hcpct  !< heat capacity (j/m3/k)
+  real                  , intent(in)    :: tg     !< surface temperature (k)
+  real, dimension(nsoil), intent(inout) :: stc    !< snow/soil/lake temp. (k)
+  
+  ! local variables
+  
+  real, dimension(0:nsoil)   :: depth_interface  ! depth of interface (negative)
+  real, dimension(0:nsoil+1) :: depth_node       ! depth of node (negative)
+  
+  real, dimension(1:nsoil)   :: dz_interface     ! distance between interfaces
+  real, dimension(0:nsoil)   :: dz_node          ! distance between nodes
+  
+  real, dimension(1:nsoil)   :: a,b,c            ! tridiagonal terms
+
+  integer :: iz
+  
+  depth_interface(0)       = 0.0
+  depth_interface(1:nsoil) = zsnso(1:nsoil)
+
+  depth_node(0)       = 0.0
+  do iz = 1, nsoil
+    depth_node(iz)    = 0.5 * (depth_interface(iz-1) + depth_interface(iz))
+  end do
+  depth_node(nsoil+1) = zbot
+  
+  print *, depth_interface
+  print *, depth_node
+  
+  do iz = 1, nsoil
+    dz_interface(iz)    = depth_interface(iz-1) - depth_interface(iz)
+  end do
+  
+  do iz = 0, nsoil
+    dz_node(iz)         = depth_node(iz) - depth_node(iz+1)
+  end do
+  
+  print *, dz_interface
+  print *, dz_node
+  stop
+
+end subroutine diffusion_implicit

@@ -1,8 +1,8 @@
 
- COMPILERF90    =       /opt/rh/gcc-toolset-11/root/usr/bin/gfortran
+ COMPILERF90    =       gfortran-mp-12
  FREESOURCE     =       -ffree-form  -ffree-line-length-none
  F90FLAGS       =       -fdefault-real-8 -fdefault-double-8
- NETCDF         =       /export/emc-lw-mbarlage/mbarlage/packages/test-env/gcc/11.2.1/netcdf-fortran-4.6.0-ee3bluk/
+ NETCDF         =       /opt/local
  NETCDFMOD      =       -I${NETCDF}/include
  NETCDFLIB      =       -L${NETCDF}/lib -lnetcdff
 

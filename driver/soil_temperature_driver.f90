@@ -5,7 +5,7 @@
 program soil_temperature
 
 use output
-use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options, rosr12
+use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 
   implicit none
 
@@ -236,6 +236,10 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options, rosr
   hcpct     = -999.0
   theoretical_temperature = -999.0
   simulation_time = 0.0
+  bottom_flux = 0.0
+  energy_balance = 0.0
+  storage_before = 0.0
+  storage_after = 0.0
   
   ntime      =  nint(maxtime * 3600.0 / dt)
 
@@ -297,12 +301,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options, rosr
                          df      ,hcpct   ,snicev  ,snliqv  ,epore   ,          & !out
                          fact    )                                                !out
 
-    storage_before = sum( hcpct(1:4) * stc(1:4) * dzsnso(1:4) )
+    storage_before = sum( hcpct(1:nsoil) * stc(1:nsoil) * dzsnso(1:nsoil) )
    
-    ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
-    
-    bottom_flux = df(nsoil)/(6.5) * (stc(nsoil)-tbot)
-    
     damp_depth_daily  = sqrt(period_daily*df(1)/hcpct(1)/pi)
     damp_depth_annual = sqrt(period_annual*df(1)/hcpct(1)/pi)
 
@@ -312,6 +312,9 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options, rosr
 
     if(solution_method == 0) then
 
+      ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
+      bottom_flux = df(nsoil)/(6.5) * (stc(nsoil)-tbot)
+    
       call tsnosoi (parameters,ice     ,nsoil   ,nsnow   ,isnow   ,ist     , & !in
                   tbot      ,zsnso   ,ssoil   ,df      ,hcpct   ,          & !in
                   sag       ,dt      ,snowh   ,dzsnso  ,                   & !in
@@ -323,9 +326,12 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options, rosr
       call diffusion_implicit(nsoil, zsnso, dt, tbot, parameters%zbot, &
                               df, hcpct, tg, stc)
     
+      ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
+      bottom_flux = df(nsoil)/(6.5) * (stc(nsoil)-tbot)
+    
     end if
     
-    storage_after = sum( hcpct(1:4) * stc(1:4) * dzsnso(1:4) )
+    storage_after = sum( hcpct(1:nsoil) * stc(1:nsoil) * dzsnso(1:nsoil) )
     
     energy_balance = storage_after - storage_before - ssoil * dt + bottom_flux * dt
 
@@ -349,6 +355,7 @@ end program
 
 subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
 
+  use routines, only: rosr12
   implicit none
   
   integer               , intent(in)    :: nsoil
@@ -369,9 +376,22 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
   real, dimension(1:nsoil)   :: dz_interface     ! distance between interfaces
   real, dimension(0:nsoil)   :: dz_node          ! distance between nodes
   
-  real, dimension(1:nsoil)   :: a,b,c            ! tridiagonal terms
-
+  real, dimension(1:nsoil)   :: heat_capacity    ! heat capacity
+  real, dimension(0:nsoil)   :: thermal_cond     ! thermal conductivity
+  
+  real, dimension(1:nsoil)   :: a,b,c,d,d2       ! tridiagonal terms
+  
   integer :: iz
+  
+  a = huge(1.0)
+  b = huge(1.0)
+  c = huge(1.0)
+  d = huge(1.0)
+  d2 = huge(1.0)
+  
+  heat_capacity = hcpct
+  thermal_cond(1:nsoil) = df(1:nsoil)
+  thermal_cond(0) = df(1)
   
   depth_interface(0)       = 0.0
   depth_interface(1:nsoil) = zsnso(1:nsoil)
@@ -382,8 +402,8 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
   end do
   depth_node(nsoil+1) = zbot
   
-  print *, depth_interface
-  print *, depth_node
+!  print *, depth_interface
+!  print *, depth_node
   
   do iz = 1, nsoil
     dz_interface(iz)    = depth_interface(iz-1) - depth_interface(iz)
@@ -393,8 +413,27 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
     dz_node(iz)         = depth_node(iz) - depth_node(iz+1)
   end do
   
-  print *, dz_interface
-  print *, dz_node
-  stop
+!  print *, dz_interface
+!  print *, dz_node
+  
+  b(1) = 1 + dt/heat_capacity(1)/dz_interface(1) *  thermal_cond(0)/dz_node(0) + dt/heat_capacity(1)/dz_interface(1) * thermal_cond(1)/dz_node(1)
+  c(1) = - dt/heat_capacity(1)/dz_interface(1) * thermal_cond(1)/dz_node(1)
+  d(1) = stc(1) + dt/heat_capacity(1)/dz_interface(1) *  thermal_cond(0)/dz_node(0) * tg
+
+  a(2) = - dt/heat_capacity(2)/dz_interface(2) * thermal_cond(1)/dz_node(1)
+  b(2) = 1 + dt/heat_capacity(2)/dz_interface(2) * thermal_cond(1)/dz_node(1) + dt/heat_capacity(2)/dz_interface(2) *  thermal_cond(2)/dz_node(2)
+  c(2) = - dt/heat_capacity(2)/dz_interface(2) * thermal_cond(2)/dz_node(2)
+  d(2) = stc(2)
+
+  a(3) = - dt/heat_capacity(3)/dz_interface(3) * thermal_cond(2)/dz_node(2)
+  b(3) = 1 + dt/heat_capacity(3)/dz_interface(3) * thermal_cond(2)/dz_node(2) + dt/heat_capacity(3)/dz_interface(3) *  thermal_cond(3)/dz_node(3)
+  c(3) = - dt/heat_capacity(3)/dz_interface(3) * thermal_cond(3)/dz_node(3)
+  d(3) = stc(3)
+  
+  a(4) = - dt/heat_capacity(4)/dz_interface(4) * thermal_cond(3)/dz_node(3)
+  b(4) = 1 + dt/heat_capacity(4)/dz_interface(4) * thermal_cond(3)/dz_node(3) + dt/heat_capacity(4)/dz_interface(4) *  thermal_cond(4)/dz_node(4)
+  d(4) = stc(4) + dt/heat_capacity(4)/dz_interface(4) *  thermal_cond(4)/dz_node(4) * tbot
+
+  call rosr12 (stc,a,b,c,d,d2,1,nsoil,0)
 
 end subroutine diffusion_implicit

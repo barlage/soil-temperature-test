@@ -2,7 +2,7 @@
   dt              = 3600.0         ! timestep [seconds]
   maxtime         = 8760          ! total simulation time [hours] 26280 = 3 years; 8760 = 1 year
   output_filename = "output.nc"
-  solution_method = 0              ! 0 = noahmp; 1 = standard diffusion eqn
+  solution_method = 1              ! 0 = noahmp; 1 = standard diffusion eqn
 /
 
 &forcing

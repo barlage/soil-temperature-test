@@ -402,9 +402,6 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
   end do
   depth_node(nsoil+1) = zbot
   
-!  print *, depth_interface
-!  print *, depth_node
-  
   do iz = 1, nsoil
     dz_interface(iz)    = depth_interface(iz-1) - depth_interface(iz)
   end do
@@ -413,27 +410,24 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
     dz_node(iz)         = depth_node(iz) - depth_node(iz+1)
   end do
   
-!  print *, dz_interface
-!  print *, dz_node
+  do iz = 1, nsoil
   
-  b(1) = 1 + dt/heat_capacity(1)/dz_interface(1) *  thermal_cond(0)/dz_node(0) + dt/heat_capacity(1)/dz_interface(1) * thermal_cond(1)/dz_node(1)
-  c(1) = - dt/heat_capacity(1)/dz_interface(1) * thermal_cond(1)/dz_node(1)
-  d(1) = stc(1) + dt/heat_capacity(1)/dz_interface(1) *  thermal_cond(0)/dz_node(0) * tg
+    b(iz) = 1 + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz-1)/dz_node(iz-1) + dt/heat_capacity(iz)/dz_interface(iz) * thermal_cond(iz)/dz_node(iz)
+    
+    if(iz .ne. nsoil) c(iz) = - dt/heat_capacity(iz)/dz_interface(iz) * thermal_cond(iz)/dz_node(iz)
 
-  a(2) = - dt/heat_capacity(2)/dz_interface(2) * thermal_cond(1)/dz_node(1)
-  b(2) = 1 + dt/heat_capacity(2)/dz_interface(2) * thermal_cond(1)/dz_node(1) + dt/heat_capacity(2)/dz_interface(2) *  thermal_cond(2)/dz_node(2)
-  c(2) = - dt/heat_capacity(2)/dz_interface(2) * thermal_cond(2)/dz_node(2)
-  d(2) = stc(2)
+    if(iz .ne. 1)     a(iz) = - dt/heat_capacity(iz)/dz_interface(iz) * thermal_cond(iz-1)/dz_node(iz-1)
 
-  a(3) = - dt/heat_capacity(3)/dz_interface(3) * thermal_cond(2)/dz_node(2)
-  b(3) = 1 + dt/heat_capacity(3)/dz_interface(3) * thermal_cond(2)/dz_node(2) + dt/heat_capacity(3)/dz_interface(3) *  thermal_cond(3)/dz_node(3)
-  c(3) = - dt/heat_capacity(3)/dz_interface(3) * thermal_cond(3)/dz_node(3)
-  d(3) = stc(3)
+    if(iz == 1) then
+      d(iz) = stc(iz) + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz-1)/dz_node(iz-1) * tg
+    elseif(iz == nsoil) then
+      d(iz) = stc(iz) + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz)/dz_node(iz) * tbot
+    else
+      d(iz) = stc(iz)
+    end if
+
+  end do
   
-  a(4) = - dt/heat_capacity(4)/dz_interface(4) * thermal_cond(3)/dz_node(3)
-  b(4) = 1 + dt/heat_capacity(4)/dz_interface(4) * thermal_cond(3)/dz_node(3) + dt/heat_capacity(4)/dz_interface(4) *  thermal_cond(4)/dz_node(4)
-  d(4) = stc(4) + dt/heat_capacity(4)/dz_interface(4) *  thermal_cond(4)/dz_node(4) * tbot
-
   call rosr12 (stc,a,b,c,d,d2,1,nsoil,0)
 
 end subroutine diffusion_implicit

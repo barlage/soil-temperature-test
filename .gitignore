@@ -9,3 +9,5 @@
 
 # Netcdf output files
 *.nc
+
+user_build_config

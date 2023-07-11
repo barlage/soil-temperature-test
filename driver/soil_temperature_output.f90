@@ -5,6 +5,7 @@ module output
   integer           :: ncid
   integer           :: iret
   integer           :: time_dim
+  integer           :: soil_dim
   integer           :: varid
 
 contains
@@ -23,6 +24,9 @@ contains
     iret = nf90_def_dim(ncid, "time", ntime, time_dim)
      if (iret /= nf90_noerr) call handle_err(iret,"define time dimension")
 
+    iret = nf90_def_dim(ncid, "soil_levels", nsoil, soil_dim)
+     if (iret /= nf90_noerr) call handle_err(iret,"define soil dimension")
+
     iret = nf90_def_var(ncid, "time",                  NF90_INT, time_dim, varid)
      if (iret /= nf90_noerr) call handle_err(iret,"define time variable")
 
@@ -31,138 +35,32 @@ contains
       iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
        if (iret /= nf90_noerr) call handle_err(iret,"define temperature_ground attribute")
 
-    iret = nf90_def_var(ncid, "soil_temperature_lev1", NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature_lev1 variable")
+    iret = nf90_def_var(ncid, "soil_temperature", NF90_DOUBLE, (/time_dim,soil_dim/), varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature variable")
       iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature_lev1 attribute")
+       if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature attribute")
 
-    iret = nf90_def_var(ncid, "soil_temperature_lev2", NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature_lev2 variable")
+    iret = nf90_def_var(ncid, "thermal_cond",     NF90_DOUBLE, (/time_dim,soil_dim/), varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define thermal_cond variable")
       iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature_lev2 attribute")
+       if (iret /= nf90_noerr) call handle_err(iret,"define thermal_cond attribute")
 
-    iret = nf90_def_var(ncid, "soil_temperature_lev3", NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature_lev3 variable")
+    iret = nf90_def_var(ncid, "heat_capacity",    NF90_DOUBLE, (/time_dim,soil_dim/), varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define heat_capacity variable")
       iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature_lev3 attribute")
+       if (iret /= nf90_noerr) call handle_err(iret,"define heat_capacity attribute")
 
-    iret = nf90_def_var(ncid, "soil_temperature_lev4", NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature_lev4 variable")
+    iret = nf90_def_var(ncid, "theory_soiltemp",  NF90_DOUBLE, (/time_dim,soil_dim/), varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define theory_soiltemp variable")
       iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define soil_temperature_lev4 attribute")
+       if (iret /= nf90_noerr) call handle_err(iret,"define theory_soiltemp attribute")
 
-    iret = nf90_def_var(ncid, "ground_heat",           NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define ground_heat variable")
+    iret = nf90_def_var(ncid, "error_soiltemp",   NF90_DOUBLE, (/time_dim,soil_dim/), varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define error_soiltemp variable")
       iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define ground_heat attribute")
-
-    iret = nf90_def_var(ncid, "soil_heat_lev1",        NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define soil_heat_lev1 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define soil_heat_lev1 attribute")
-
-    iret = nf90_def_var(ncid, "soil_heat_lev2",        NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define soil_heat_lev2 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define soil_heat_lev2 attribute")
-
-    iret = nf90_def_var(ncid, "soil_heat_lev3",        NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define soil_heat_lev3 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define soil_heat_lev3 attribute")
-
-    iret = nf90_def_var(ncid, "soil_heat_lev4",        NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define soil_heat_lev4 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define soil_heat_lev4 attribute")
-
-    iret = nf90_def_var(ncid, "df_lev1",               NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define df_lev1 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define df_lev1 attribute")
-
-    iret = nf90_def_var(ncid, "df_lev2",               NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define df_lev2 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define df_lev2 attribute")
-
-    iret = nf90_def_var(ncid, "df_lev3",               NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define df_lev3 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define df_lev3 attribute")
-
-    iret = nf90_def_var(ncid, "df_lev4",               NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define df_lev4 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define df_lev4 attribute")
-
-    iret = nf90_def_var(ncid, "hcpct_lev1",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define hcpct_lev1 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define hcpct_lev1 attribute")
-
-    iret = nf90_def_var(ncid, "hcpct_lev2",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define hcpct_lev2 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define hcpct_lev2 attribute")
-
-    iret = nf90_def_var(ncid, "hcpct_lev3",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define hcpct_lev3 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define hcpct_lev3 attribute")
-
-    iret = nf90_def_var(ncid, "hcpct_lev4",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define hcpct_lev4 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define hcpct_lev4 attribute")
-
-    iret = nf90_def_var(ncid, "theory_lev1",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define theory_lev1 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define theory_lev1 attribute")
-
-    iret = nf90_def_var(ncid, "theory_lev2",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define theory_lev2 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define theory_lev2 attribute")
-
-    iret = nf90_def_var(ncid, "theory_lev3",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define theory_lev3 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define theory_lev3 attribute")
-
-    iret = nf90_def_var(ncid, "theory_lev4",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define theory_lev4 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define theory_lev4 attribute")
-
-    iret = nf90_def_var(ncid, "diff_lev1",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev1 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev1 attribute")
+       if (iret /= nf90_noerr) call handle_err(iret,"define error_soiltemp attribute")
       iret = nf90_put_att(ncid, varid, "long_name", "calculated - theoretical temperature")
-       if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev1 long name")
-
-    iret = nf90_def_var(ncid, "diff_lev2",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev2 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev2 attribute")
-      iret = nf90_put_att(ncid, varid, "long_name", "calculated - theoretical temperature")
-       if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev2 long name")
-
-    iret = nf90_def_var(ncid, "diff_lev3",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev3 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev3 attribute")
-      iret = nf90_put_att(ncid, varid, "long_name", "calculated - theoretical temperature")
-       if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev3 long name")
-
-    iret = nf90_def_var(ncid, "diff_lev4",            NF90_DOUBLE, time_dim, varid)
-     if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev4 variable")
-      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
-       if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev4 attribute")
-      iret = nf90_put_att(ncid, varid, "long_name", "calculated - theoretical temperature")
-       if (iret /= nf90_noerr) call handle_err(iret,"define diff_lev4 long name")
+       if (iret /= nf90_noerr) call handle_err(iret,"define error_soiltemp long name")
 
     iret = nf90_def_var(ncid, "energy_balance",            NF90_DOUBLE, time_dim, varid)
      if (iret /= nf90_noerr) call handle_err(iret,"define  variable")
@@ -170,6 +68,11 @@ contains
        if (iret /= nf90_noerr) call handle_err(iret,"define  attribute")
       iret = nf90_put_att(ncid, varid, "long_name", "soil column energy balance")
        if (iret /= nf90_noerr) call handle_err(iret,"define energy_balance long name")
+
+    iret = nf90_def_var(ncid, "top_flux",           NF90_DOUBLE, time_dim, varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define ground_heat variable")
+      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
+       if (iret /= nf90_noerr) call handle_err(iret,"define ground_heat attribute")
 
     iret = nf90_def_var(ncid, "bottom_flux",            NF90_DOUBLE, time_dim, varid)
      if (iret /= nf90_noerr) call handle_err(iret,"define bottom_flux variable")
@@ -191,10 +94,10 @@ contains
                             ground_heat,          &
                             theoretical_temperature,&
                             energy_balance,       &
-                            bottom_flux)!,          &
-                           ! soil_interface_flux)
+                            bottom_flux           )
 
     implicit none
+
      integer                :: itime
      integer                :: nsoil
      real                   :: temperature_ground
@@ -204,7 +107,6 @@ contains
      real, dimension(nsoil) :: temperature_soil
      real, dimension(nsoil) :: thermal_conductivity
      real, dimension(nsoil) :: heat_capacity
-     real, dimension(nsoil) :: soil_interface_flux
      real, dimension(nsoil) :: theoretical_temperature
      
      iret = nf90_inq_varid(ncid, "time", varid)
@@ -217,121 +119,46 @@ contains
      iret = nf90_put_var(ncid, varid, temperature_ground,    start=(/itime+1/))
       if (iret /= nf90_noerr) call handle_err(iret,"put temperature_ground variable")
 
-     iret = nf90_inq_varid(ncid, "ground_heat", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire ground_heat variable")
-     iret = nf90_put_var(ncid, varid, ground_heat,           start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put ground_heat variable")
-
-     iret = nf90_inq_varid(ncid, "soil_temperature_lev1", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire soil_temperature_lev1 variable")
-     iret = nf90_put_var(ncid, varid,  temperature_soil(1),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put soil_temperature_lev1 variable")
-
-     iret = nf90_inq_varid(ncid, "soil_temperature_lev2", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire soil_temperature_lev2 variable")
-     iret = nf90_put_var(ncid, varid,  temperature_soil(2),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put soil_temperature_lev2 variable")
-
-     iret = nf90_inq_varid(ncid, "soil_temperature_lev3", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire soil_temperature_lev3 variable")
-     iret = nf90_put_var(ncid, varid,  temperature_soil(3),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put soil_temperature_lev3 variable")
-
-     iret = nf90_inq_varid(ncid, "soil_temperature_lev4", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire soil_temperature_lev4 variable")
-     iret = nf90_put_var(ncid, varid,  temperature_soil(4),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put soil_temperature_lev4 variable")
-
-     iret = nf90_inq_varid(ncid, "df_lev1", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire df_lev1 variable")
-     iret = nf90_put_var(ncid, varid,  thermal_conductivity(1),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put df_lev1 variable")
-
-     iret = nf90_inq_varid(ncid, "df_lev2", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire df_lev2 variable")
-     iret = nf90_put_var(ncid, varid,  thermal_conductivity(2),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put df_lev2 variable")
-
-     iret = nf90_inq_varid(ncid, "df_lev3", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire df_lev3 variable")
-     iret = nf90_put_var(ncid, varid,  thermal_conductivity(3),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put df_lev3 variable")
-
-     iret = nf90_inq_varid(ncid, "df_lev4", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire df_lev4 variable")
-     iret = nf90_put_var(ncid, varid,  thermal_conductivity(4),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put df_lev4 variable")
-
-     iret = nf90_inq_varid(ncid, "hcpct_lev1", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire hcpct_lev1 variable")
-     iret = nf90_put_var(ncid, varid,  heat_capacity(1),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put hcpct_lev1 variable")
-
-     iret = nf90_inq_varid(ncid, "hcpct_lev2", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire hcpct_lev2 variable")
-     iret = nf90_put_var(ncid, varid,  heat_capacity(2),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put hcpct_lev2 variable")
-
-     iret = nf90_inq_varid(ncid, "hcpct_lev3", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire hcpct_lev3 variable")
-     iret = nf90_put_var(ncid, varid,  heat_capacity(3),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put hcpct_lev3 variable")
-
-     iret = nf90_inq_varid(ncid, "hcpct_lev4", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire hcpct_lev4 variable")
-     iret = nf90_put_var(ncid, varid,  heat_capacity(4),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put hcpct_lev4 variable")
-
-     iret = nf90_inq_varid(ncid, "theory_lev1", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire theory_lev1 variable")
-     iret = nf90_put_var(ncid, varid,  theoretical_temperature(1),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put theory_lev1 variable")
-
-     iret = nf90_inq_varid(ncid, "theory_lev2", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire theory_lev2 variable")
-     iret = nf90_put_var(ncid, varid,  theoretical_temperature(2),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put theory_lev2 variable")
-
-     iret = nf90_inq_varid(ncid, "theory_lev3", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire theory_lev3 variable")
-     iret = nf90_put_var(ncid, varid,  theoretical_temperature(3),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put theory_lev3 variable")
-
-     iret = nf90_inq_varid(ncid, "theory_lev4", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire theory_lev4 variable")
-     iret = nf90_put_var(ncid, varid,  theoretical_temperature(4),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put theory_lev4 variable")
-  
      iret = nf90_inq_varid(ncid, "energy_balance", varid)
       if (iret /= nf90_noerr) call handle_err(iret,"inquire energy_balance variable")
      iret = nf90_put_var(ncid, varid, energy_balance ,     start=(/itime+1/))
       if (iret /= nf90_noerr) call handle_err(iret,"put energy_balance variable")
+
+     iret = nf90_inq_varid(ncid, "top_flux", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire ground_heat variable")
+     iret = nf90_put_var(ncid, varid, ground_heat,           start=(/itime+1/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put ground_heat variable")
 
      iret = nf90_inq_varid(ncid, "bottom_flux", varid)
       if (iret /= nf90_noerr) call handle_err(iret,"inquire bottom_flux variable")
      iret = nf90_put_var(ncid, varid, bottom_flux ,     start=(/itime+1/))
       if (iret /= nf90_noerr) call handle_err(iret,"put bottom_flux variable")
   
+     iret = nf90_inq_varid(ncid, "soil_temperature", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire soil_temperature variable")
+     iret = nf90_put_var(ncid, varid,  temperature_soil,     start=(/itime+1,1/), count=(/1,nsoil/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put soil_temperature variable")
+
+     iret = nf90_inq_varid(ncid, "thermal_cond", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire thermal_cond variable")
+     iret = nf90_put_var(ncid, varid,  thermal_conductivity,     start=(/itime+1,1/), count=(/1,nsoil/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put thermal_cond variable")
+
+     iret = nf90_inq_varid(ncid, "heat_capacity", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire heat_capacity variable")
+     iret = nf90_put_var(ncid, varid,  heat_capacity,     start=(/itime+1,1/), count=(/1,nsoil/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put heat_capacity variable")
+
+     iret = nf90_inq_varid(ncid, "theory_soiltemp", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire theory_soiltemp variable")
+     iret = nf90_put_var(ncid, varid,  theoretical_temperature,     start=(/itime+1,1/), count=(/1,nsoil/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put theory_soiltemp variable")
+
   if(itime>0) then
-     iret = nf90_inq_varid(ncid, "diff_lev1", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire diff_lev1 variable")
-     iret = nf90_put_var(ncid, varid,  temperature_soil(1)-theoretical_temperature(1),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put diff_lev1 variable")
-
-     iret = nf90_inq_varid(ncid, "diff_lev2", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire diff_lev2 variable")
-     iret = nf90_put_var(ncid, varid,  temperature_soil(2)-theoretical_temperature(2),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put diff_lev2 variable")
-
-     iret = nf90_inq_varid(ncid, "diff_lev3", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire diff_lev3 variable")
-     iret = nf90_put_var(ncid, varid,  temperature_soil(3)-theoretical_temperature(3),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put diff_lev3 variable")
-
-     iret = nf90_inq_varid(ncid, "diff_lev4", varid)
-      if (iret /= nf90_noerr) call handle_err(iret,"inquire diff_lev4 variable")
-     iret = nf90_put_var(ncid, varid,  temperature_soil(4)-theoretical_temperature(4),     start=(/itime+1/))
-      if (iret /= nf90_noerr) call handle_err(iret,"put diff_lev4 variable")
+     iret = nf90_inq_varid(ncid, "error_soiltemp", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire error_soiltemp variable")
+     iret = nf90_put_var(ncid, varid,  temperature_soil-theoretical_temperature,     start=(/itime+1,1/), count=(/1,nsoil/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put error_soiltemp variable")
   end if
   
    end subroutine add_to_output

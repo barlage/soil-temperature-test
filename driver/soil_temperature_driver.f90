@@ -52,8 +52,9 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   namelist / timing          / dt,maxtime,output_filename,solution_method
   namelist / forcing         / temperature_mean, temperature_amplitude_daily, &
                                temperature_amplitude_annual
-  namelist / structure       / isltyp,nsoil,nsnow,structure_option,soil_depth,tbot
-  namelist / fixed_initial   / zsoil,dzsnso,sice,sh2o,stc,initial_theory
+  namelist / structure       / isltyp,nsoil,nsnow,structure_option,soil_depth,tbot,&
+                               initial_theory
+  namelist / fixed_initial   / zsoil,dzsnso,sice,sh2o,stc
   namelist / uniform_initial / initial_uniform,initial_sh2o_value,&
                                initial_sice_value,initial_stc_value
   namelist / soil_parameters / qtz,maxsmc,csoil_data,zbot_data
@@ -188,7 +189,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     open(30, file="namelist.input", form="formatted")
      read(30, fixed_initial)
     close(30)
-  else if(structure_option == 2) then  ! fixed levels
+    if(initial_theory) print*, "prescribed temperature ICs will be replaced with theoretical"
+  elseif(structure_option == 2) then  ! fixed levels
     dzsnso = soil_depth / nsoil
     do iz = 1, nsoil
       zsoil(iz) = -1. * sum(dzsnso(1:iz))
@@ -271,7 +273,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 !---------------------------------------------------------------------
 
   call initialize_output(output_filename, ntime+1, nsoil)
-  call add_to_output(0,nsoil,tg,stc(1:4),df(1:4),hcpct(1:4),ssoil, &
+  call add_to_output(0,nsoil,tg,stc(1:nsoil),df(1:nsoil),hcpct(1:nsoil),ssoil, &
                        theoretical_temperature,energy_balance, bottom_flux)
 
 !---------------------------------------------------------------------
@@ -313,7 +315,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     if(solution_method == 0) then
 
       ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
-      bottom_flux = df(nsoil)/(6.5) * (stc(nsoil)-tbot)
+      bottom_flux = df(nsoil)/(depth_node(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
     
       call tsnosoi (parameters,ice     ,nsoil   ,nsnow   ,isnow   ,ist     , & !in
                   tbot      ,zsnso   ,ssoil   ,df      ,hcpct   ,          & !in
@@ -327,7 +329,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
                               df, hcpct, tg, stc)
     
       ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
-      bottom_flux = df(nsoil)/(6.5) * (stc(nsoil)-tbot)
+      bottom_flux = df(nsoil)/(depth_node(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
     
     end if
     
@@ -344,7 +346,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   ! add to output file
   !---------------------------------------------------------------------
 
-    call add_to_output(itime,nsoil,tg,stc(1:4),df(1:4),hcpct(1:4),ssoil, &
+    call add_to_output(itime,nsoil,tg,stc(1:nsoil),df(1:nsoil),hcpct(1:nsoil),ssoil, &
                        theoretical_temperature,energy_balance, bottom_flux)
    
   end do ! time loop

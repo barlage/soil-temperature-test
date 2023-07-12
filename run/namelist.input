@@ -1,7 +1,8 @@
 &timing ! and output and solution method
   dt              = 3600.0         ! timestep [seconds]
-  maxtime         = 8760          ! total simulation time [hours] 26280 = 3 years; 8760 = 1 year
-  output_filename = "output.nc"
+  maxtime         = 8760           ! total simulation time [hours] 26280 = 3 years; 8760 = 1 year
+  output_filename = "output_4l_2m_8m_1h_t1_imp.nc"
+  output_freq     = 24             ! output after this many timesteps
   solution_method = 1              ! 0 = noahmp; 1 = standard diffusion eqn
 /
 

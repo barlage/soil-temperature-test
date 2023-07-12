@@ -10,13 +10,17 @@ module output
 
 contains
 
-  subroutine initialize_output(output_filename, ntime, nsoil)
+  subroutine initialize_output(output_filename, ntime_in, output_freq, nsoil)
  
     implicit none
+    integer       :: ntime_in
     integer       :: ntime
+    integer       :: output_freq
     integer       :: nsoil
     character*256 :: output_filename
     real          :: fillvalue = -999.0
+    
+    ntime = (ntime_in - 1) / output_freq + 1
  
     iret = nf90_create(trim(output_filename), NF90_CLOBBER, ncid)
      if (iret /= nf90_noerr) call handle_err(iret,"nf90_create")
@@ -86,7 +90,8 @@ contains
   
    end subroutine initialize_output
 
-   subroutine add_to_output(itime, nsoil,         &
+   subroutine add_to_output(itime_in, output_freq,&
+                            nsoil,                &
                             temperature_ground,   &
                             temperature_soil,     &
                             thermal_conductivity, &
@@ -99,6 +104,8 @@ contains
     implicit none
 
      integer                :: itime
+     integer                :: itime_in
+     integer                :: output_freq
      integer                :: nsoil
      real                   :: temperature_ground
      real                   :: ground_heat
@@ -108,6 +115,8 @@ contains
      real, dimension(nsoil) :: thermal_conductivity
      real, dimension(nsoil) :: heat_capacity
      real, dimension(nsoil) :: theoretical_temperature
+     
+     itime = itime_in/output_freq
      
      iret = nf90_inq_varid(ncid, "time", varid)
       if (iret /= nf90_noerr) call handle_err(iret,"inquire time variable")

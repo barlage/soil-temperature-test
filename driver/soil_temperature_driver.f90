@@ -16,6 +16,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real          :: dt
   integer       :: maxtime
   character*256 :: output_filename
+  integer       :: output_freq
   integer       :: solution_method
   real          :: temperature_mean
   real          :: temperature_amplitude_daily
@@ -49,7 +50,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real                :: csoil_data  ! soil heat capacity
   real                ::  zbot_data  ! deep soil temperature depth
      
-  namelist / timing          / dt,maxtime,output_filename,solution_method
+  namelist / timing          / dt,maxtime,output_filename,solution_method,output_freq
   namelist / forcing         / temperature_mean, temperature_amplitude_daily, &
                                temperature_amplitude_annual
   namelist / structure       / isltyp,nsoil,nsnow,structure_option,soil_depth,tbot,&
@@ -272,8 +273,9 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 ! create output file and add initial values
 !---------------------------------------------------------------------
 
-  call initialize_output(output_filename, ntime+1, nsoil)
-  call add_to_output(0,nsoil,tg,stc(1:nsoil),df(1:nsoil),hcpct(1:nsoil),ssoil, &
+  if(mod(ntime,output_freq) /= 0) stop "ntime must be divisible by output_freq"
+  call initialize_output(output_filename, ntime+1, output_freq, nsoil)
+  call add_to_output(0,output_freq,nsoil,tg,stc(1:nsoil),df(1:nsoil),hcpct(1:nsoil),ssoil, &
                        theoretical_temperature,energy_balance, bottom_flux)
 
 !---------------------------------------------------------------------
@@ -307,6 +309,9 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
    
     damp_depth_daily  = sqrt(period_daily*df(1)/hcpct(1)/pi)
     damp_depth_annual = sqrt(period_annual*df(1)/hcpct(1)/pi)
+    
+    if(itime == 1) print *, "damping depth daily: ",damp_depth_daily
+    if(itime == 1) print *, "damping depth annual: ",damp_depth_annual
 
     theoretical_temperature = temperature_mean + &
          temperature_amplitude_daily  * exp(depth_node/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_node/damp_depth_daily) + &
@@ -315,8 +320,12 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     if(solution_method == 0) then
 
       ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
-      bottom_flux = df(nsoil)/(depth_node(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
-    
+      if(bottom_temperature_option == 1) then
+       bottom_flux = 0.0
+      elseif(bottom_temperature_option == 2) then
+       bottom_flux = df(nsoil)/(depth_node(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
+      end if
+          
       call tsnosoi (parameters,ice     ,nsoil   ,nsnow   ,isnow   ,ist     , & !in
                   tbot      ,zsnso   ,ssoil   ,df      ,hcpct   ,          & !in
                   sag       ,dt      ,snowh   ,dzsnso  ,                   & !in
@@ -326,10 +335,14 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     elseif(solution_method == 1) then
 
       call diffusion_implicit(nsoil, zsnso, dt, tbot, parameters%zbot, &
-                              df, hcpct, tg, stc)
+                              df, hcpct, tg, stc, bottom_temperature_option)
     
       ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
-      bottom_flux = df(nsoil)/(depth_node(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
+      if(bottom_temperature_option == 1) then
+       bottom_flux = 0.0
+      elseif(bottom_temperature_option == 2) then
+       bottom_flux = df(nsoil)/(depth_node(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
+      end if
     
     end if
     
@@ -346,16 +359,19 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   ! add to output file
   !---------------------------------------------------------------------
 
-    call add_to_output(itime,nsoil,tg,stc(1:nsoil),df(1:nsoil),hcpct(1:nsoil),ssoil, &
-                       theoretical_temperature,energy_balance, bottom_flux)
-   
+    if(mod(itime,output_freq) == 0) then
+
+      call add_to_output(itime,output_freq,nsoil,tg,stc(1:nsoil),df(1:nsoil),hcpct(1:nsoil),ssoil, &
+                         theoretical_temperature,energy_balance, bottom_flux)
+    end if
+    
   end do ! time loop
 
   call finalize_output()
    
 end program
 
-subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
+subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc, bottom_temperature_option)
 
   use routines, only: rosr12
   implicit none
@@ -369,7 +385,8 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
   real, dimension(nsoil), intent(in)    :: hcpct  !< heat capacity (j/m3/k)
   real                  , intent(in)    :: tg     !< surface temperature (k)
   real, dimension(nsoil), intent(inout) :: stc    !< snow/soil/lake temp. (k)
-  
+  integer               , intent(in)    :: bottom_temperature_option  
+
   ! local variables
   
   real, dimension(0:nsoil)   :: depth_interface  ! depth of interface (negative)
@@ -414,7 +431,11 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
   
   do iz = 1, nsoil
   
-    b(iz) = 1 + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz-1)/dz_node(iz-1) + dt/heat_capacity(iz)/dz_interface(iz) * thermal_cond(iz)/dz_node(iz)
+    if(iz == nsoil .and. bottom_temperature_option == 1) then
+      b(iz) = 1 + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz-1)/dz_node(iz-1) 
+    else
+      b(iz) = 1 + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz-1)/dz_node(iz-1) + dt/heat_capacity(iz)/dz_interface(iz) * thermal_cond(iz)/dz_node(iz)
+    end if
     
     if(iz .ne. nsoil) c(iz) = - dt/heat_capacity(iz)/dz_interface(iz) * thermal_cond(iz)/dz_node(iz)
 
@@ -423,7 +444,11 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc)
     if(iz == 1) then
       d(iz) = stc(iz) + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz-1)/dz_node(iz-1) * tg
     elseif(iz == nsoil) then
-      d(iz) = stc(iz) + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz)/dz_node(iz) * tbot
+      if(iz == nsoil .and. bottom_temperature_option == 1) then
+        d(iz) = stc(iz)
+      else
+        d(iz) = stc(iz) + dt/heat_capacity(iz)/dz_interface(iz) *  thermal_cond(iz)/dz_node(iz) * tbot
+      end if
     else
       d(iz) = stc(iz)
     end if

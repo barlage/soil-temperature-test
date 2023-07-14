@@ -18,7 +18,7 @@ contains
     integer       :: output_freq
     integer       :: nsoil
     character*256 :: output_filename
-    real          :: fillvalue = -999.0
+    real          :: fillvalue = 1.d30
     
     ntime = (ntime_in - 1) / output_freq + 1
  

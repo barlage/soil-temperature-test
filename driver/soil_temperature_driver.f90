@@ -113,6 +113,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real    :: period_daily  = 3600.0 * 24
   real    :: period_annual = 3600.0*24*365
   real, parameter :: pi = 3.14159265
+  real, parameter :: fillvalue = 1.d30
   real    :: storage_before, storage_after, bottom_flux, energy_balance
 
 !---------------------------------------------------------------------
@@ -228,21 +229,21 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   tg        = temperature_mean
   isnow     = 0            !
   snowh     = 0.0          !
-  ssoil     = 0.0          !
+  ssoil     = fillvalue    !
   ur        = huge(0.0)    ! 
   lat       = huge(0.0)    ! 
   z0m       = huge(0.0)    ! 
   zlvl      = huge(0.0)    ! 
   sag       = huge(0.0)    !
   ice       = huge(0)      !
-  df        = -999.0
-  hcpct     = -999.0
-  theoretical_temperature = -999.0
+  df        = fillvalue
+  hcpct     = fillvalue
+  theoretical_temperature = fillvalue
   simulation_time = 0.0
-  bottom_flux = 0.0
-  energy_balance = 0.0
-  storage_before = 0.0
-  storage_after = 0.0
+  bottom_flux = fillvalue
+  energy_balance = fillvalue
+  storage_before = fillvalue
+  storage_after = fillvalue
   
   ntime      =  nint(maxtime * 3600.0 / dt)
 

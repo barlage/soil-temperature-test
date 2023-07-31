@@ -107,7 +107,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   integer :: simulation_time    ! total time into simulation
   integer :: ntime      = 0     ! number of timesteps to run
   real, allocatable, dimension(:) :: theoretical_temperature   ! estimate T from diffusion solution
-  real, allocatable, dimension(:) :: depth_node                ! calculation node depth
+  real, allocatable, dimension(:) :: depth_midpoint            ! calculation node depth
+  real, allocatable, dimension(:) :: depth_interface           ! calculation node depth
   real    :: damp_depth_daily
   real    :: damp_depth_annual
   real    :: period_daily  = 3600.0 * 24
@@ -143,24 +144,25 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 !  allocate for dynamic levels
 !---------------------------------------------------------------------
 
-  allocate (zsoil (       1:nsoil))   !depth of layer-bottom from soil surface
-  allocate (dzsnso(-nsnow+1:nsoil))   !snow/soil layer thickness [m]
-  allocate (zsnso (-nsnow+1:nsoil))   !snow/soil layer thickness [m]
-  allocate (sice  (       1:nsoil))   !soil ice content [m3/m3]
-  allocate (sh2o  (       1:nsoil))   !soil liquid water content [m3/m3]
-  allocate (smc   (       1:nsoil))   !total soil water content [m3/m3]
-  allocate (stc   (       1:nsoil))   !total soil water content [m3/m3]
-  allocate (df    (-nsnow+1:nsoil))   !snow/soil layer thickness [m]
-  allocate (hcpct (-nsnow+1:nsoil))   !snow/soil layer thickness [m]
-  allocate (snice (-nsnow+1:0    ))   !snow/soil layer thickness [m]
-  allocate (snliq (-nsnow+1:0    ))   !snow/soil layer thickness [m]
-  allocate (snicev(-nsnow+1:0    ))   !snow/soil layer thickness [m]
-  allocate (snliqv(-nsnow+1:0    ))   !snow/soil layer thickness [m]
-  allocate (epore (-nsnow+1:0    ))   !snow/soil layer thickness [m]
-  allocate (fact  (-nsnow+1:nsoil))   !snow/soil layer thickness [m]
+  allocate (zsoil (       1:nsoil))
+  allocate (dzsnso(-nsnow+1:nsoil))
+  allocate (zsnso (-nsnow+1:nsoil))
+  allocate (sice  (       1:nsoil))
+  allocate (sh2o  (       1:nsoil))
+  allocate (smc   (       1:nsoil))
+  allocate (stc   (       1:nsoil))
+  allocate (df    (-nsnow+1:nsoil))
+  allocate (hcpct (-nsnow+1:nsoil))
+  allocate (snice (-nsnow+1:0    ))
+  allocate (snliq (-nsnow+1:0    ))
+  allocate (snicev(-nsnow+1:0    ))
+  allocate (snliqv(-nsnow+1:0    ))
+  allocate (epore (-nsnow+1:0    ))
+  allocate (fact  (-nsnow+1:nsoil))
   
-  allocate (theoretical_temperature (1:nsoil))   !estimate T from diffusion solution [K]
-  allocate (depth_node (1:nsoil))                !calculation node depth [m]
+  allocate (theoretical_temperature (1:nsoil))   ! estimate T from diffusion solution [K]
+  allocate (depth_midpoint  (1:nsoil))           ! midpoint depth (negative) [m]
+  allocate (depth_interface (1:nsoil))           ! interface depth (negative) [m]
 
   allocate (parameters%quartz(nsoil))
   allocate (parameters%smcmax(nsoil))
@@ -192,10 +194,10 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
      read(30, fixed_initial)
     close(30)
     if(initial_theory) print*, "prescribed temperature ICs will be replaced with theoretical"
-  elseif(structure_option == 2) then  ! fixed levels
-    dzsnso = soil_depth / nsoil
+  elseif(structure_option == 2 .or. structure_option == 3) then  ! fixed levels
+    dzsnso = soil_depth / nsoil    ! soil layer thickness, positive
     do iz = 1, nsoil
-      zsoil(iz) = -1. * sum(dzsnso(1:iz))
+      zsoil(iz) = -1. * sum(dzsnso(1:iz))  ! depth to interface, negative
     end do
     if(.not.initial_uniform) &
       stop "structure_option > 1 must have initial_uniform == .true."
@@ -226,35 +228,39 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     end if
   end do
 
-  tg        = temperature_mean
-  isnow     = 0            !
-  snowh     = 0.0          !
-  ssoil     = fillvalue    !
-  ur        = huge(0.0)    ! 
-  lat       = huge(0.0)    ! 
-  z0m       = huge(0.0)    ! 
-  zlvl      = huge(0.0)    ! 
-  sag       = huge(0.0)    !
-  ice       = huge(0)      !
+  tg        = temperature_mean  ! surface temperature
+  isnow     = 0                 !
+  snowh     = 0.0               !
+  ssoil     = fillvalue         !
+  ur        = huge(0.0)         ! 
+  lat       = huge(0.0)         ! 
+  z0m       = huge(0.0)         ! 
+  zlvl      = huge(0.0)         ! 
+  sag       = huge(0.0)         !
+  ice       = huge(0)           !
   df        = fillvalue
   hcpct     = fillvalue
   theoretical_temperature = fillvalue
-  simulation_time = 0.0
-  bottom_flux = fillvalue
-  energy_balance = fillvalue
-  storage_before = fillvalue
-  storage_after = fillvalue
+  simulation_time         = 0.0
+  bottom_flux             = fillvalue
+  energy_balance          = fillvalue
+  storage_before          = fillvalue
+  storage_after           = fillvalue
   
   ntime      =  nint(maxtime * 3600.0 / dt)
 
-  zsnso      = 0.0
-  zsnso(1:nsoil) = zsoil
-  depth_node(1) = 0.5 * zsoil(1)
+  zsnso          = 0.0
+  zsnso(1:nsoil) = zsoil          ! interface depths
+
+  depth_interface = zsnso
+
+  depth_midpoint(1) = 0.5 * zsoil(1)
   do iz = 2, nsoil
-    depth_node(iz) = 0.5*(zsoil(iz-1) + zsoil(iz))
+    depth_midpoint(iz) = 0.5*(zsoil(iz-1) + zsoil(iz))
   end do
 
   if(initial_theory) then
+   ! get df and hcpct for theoretical temperature
     call thermoprop (parameters  ,nsoil   ,nsnow   ,isnow   ,ist     ,dzsnso  , & !in
                          dt      ,snowh   ,snice   ,snliq   ,                   & !in
                          smc     ,sh2o    ,tg      ,stc     ,ur      ,          & !in
@@ -265,9 +271,16 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     damp_depth_daily  = sqrt(period_daily*df(1)/hcpct(1)/pi)
     damp_depth_annual = sqrt(period_annual*df(1)/hcpct(1)/pi)
 
-    stc = temperature_mean + &
-          temperature_amplitude_daily  * exp(depth_node/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_node/damp_depth_daily) + &
-          temperature_amplitude_annual * exp(depth_node/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_node/damp_depth_annual)
+    if(structure_option == 1 .or. structure_option == 2) then
+      stc = temperature_mean + &
+            temperature_amplitude_daily  * exp(depth_midpoint/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_midpoint/damp_depth_daily) + &
+            temperature_amplitude_annual * exp(depth_midpoint/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_midpoint/damp_depth_annual)
+    elseif(structure_option == 3) then
+      stc = temperature_mean + &
+            temperature_amplitude_daily  * exp(depth_interface/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_interface/damp_depth_daily) + &
+            temperature_amplitude_annual * exp(depth_interface/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_interface/damp_depth_annual)
+    end if
+
   end if
 
 !---------------------------------------------------------------------
@@ -314,17 +327,25 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     if(itime == 1) print *, "damping depth daily: ",damp_depth_daily
     if(itime == 1) print *, "damping depth annual: ",damp_depth_annual
 
-    theoretical_temperature = temperature_mean + &
-         temperature_amplitude_daily  * exp(depth_node/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_node/damp_depth_daily) + &
-         temperature_amplitude_annual * exp(depth_node/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_node/damp_depth_annual)
+    if(structure_option == 1 .or. structure_option == 2) then
+      theoretical_temperature = temperature_mean + &
+           temperature_amplitude_daily  * exp(depth_midpoint/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_midpoint/damp_depth_daily) + &
+           temperature_amplitude_annual * exp(depth_midpoint/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_midpoint/damp_depth_annual)
+    elseif(structure_option == 3) then
+      theoretical_temperature = temperature_mean + &
+           temperature_amplitude_daily  * exp(depth_interface/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_interface/damp_depth_daily) + &
+           temperature_amplitude_annual * exp(depth_interface/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_interface/damp_depth_annual)
+    end if
 
-    if(solution_method == 0) then
+    if(solution_method == 0) then  ! use noahmp method
+
+     ! top and bottom fluxes defined from previous timestep temperatures 
 
       ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
       if(bottom_temperature_option == 1) then
        bottom_flux = 0.0
       elseif(bottom_temperature_option == 2) then
-       bottom_flux = df(nsoil)/(depth_node(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
+       bottom_flux = df(nsoil)/(depth_midpoint(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
       end if
           
       call tsnosoi (parameters,ice     ,nsoil   ,nsnow   ,isnow   ,ist     , & !in
@@ -333,18 +354,41 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
                   tg        ,iloc    ,jloc    ,                            & !in
                   stc       ,errmsg  ,errflg     )                           !inout
 
-    elseif(solution_method == 1) then
+    elseif(solution_method == 1) then   ! use diffusion_implicit_midpoint subroutine
 
-      call diffusion_implicit(nsoil, zsnso, dt, tbot, parameters%zbot, &
-                              df, hcpct, tg, stc, bottom_temperature_option)
+      if(structure_option == 1 .or. structure_option == 2) then
+
+        call diffusion_implicit_midpoint(nsoil, zsnso, dt, tbot, parameters%zbot, &
+                                         df, hcpct, tg, stc, bottom_temperature_option)
     
-      ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
-      if(bottom_temperature_option == 1) then
-       bottom_flux = 0.0
-      elseif(bottom_temperature_option == 2) then
-       bottom_flux = df(nsoil)/(depth_node(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
+     ! top and bottom fluxes defined from updated temperatures 
+
+        ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
+
+        if(bottom_temperature_option == 1) then
+          bottom_flux = 0.0
+        elseif(bottom_temperature_option == 2) then
+          bottom_flux = df(nsoil)/(depth_midpoint(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
+        end if
+
+    elseif(solution_method == 2 .and. structure_option == 3) then ! use diffusion_implicit_interface
+
+        if(bottom_temperature_option /= 1) stop "only zero flux for the structure option 3"
+        call diffusion_implicit_interface(nsoil, depth_midpoint, depth_interface, dt, df, hcpct, tg, stc)
+    
+        ssoil = df(1)/depth_interface(1) * (tg - stc(1))
+
+        bottom_flux = 0.0
+
       end if
     
+    else
+    
+      print *, "structure_option: ",structure_option
+      print *, "solution_method: ",solution_method
+      print *, solution_method == 2 .and. structure_option == 3
+      stop "no valid solution-structure combination"
+
     end if
     
     storage_after = sum( hcpct(1:nsoil) * stc(1:nsoil) * dzsnso(1:nsoil) )
@@ -372,7 +416,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
    
 end program
 
-subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc, bottom_temperature_option)
+subroutine diffusion_implicit_midpoint(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc, bottom_temperature_option)
 
   use routines, only: rosr12
   implicit none
@@ -458,4 +502,78 @@ subroutine diffusion_implicit(nsoil, zsnso, dt, tbot, zbot, df, hcpct, tg, stc, 
   
   call rosr12 (stc,a,b,c,d,d2,1,nsoil,0)
 
-end subroutine diffusion_implicit
+end subroutine diffusion_implicit_midpoint
+
+subroutine diffusion_implicit_interface(nsoil, depth_midpoint, depth_interface, dt, df, hcpct, tg, stc)
+
+  use routines, only: rosr12
+  implicit none
+  
+  integer               , intent(in)    :: nsoil
+  real, dimension(nsoil), intent(in)    :: depth_midpoint   ! depth to midpoints (negative) [m]
+  real, dimension(nsoil), intent(in)    :: depth_interface  ! depth to interfaces (negative) [m]
+  real                  , intent(in)    :: dt               ! time step [s]
+  real, dimension(nsoil), intent(in)    :: df               ! thermal conductivity (W/m2/K)
+  real, dimension(nsoil), intent(in)    :: hcpct            ! heat capacity (J/m3/K)
+  real                  , intent(in)    :: tg               ! surface temperature (K)
+  real, dimension(nsoil), intent(inout) :: stc              ! soil temperature (K)
+
+  ! local variables
+  
+  real, dimension(1:nsoil)   :: dz_interface     ! distance between interfaces
+  real, dimension(1:nsoil)   :: dz_midpoint      ! distance between midpoints
+  
+  real, dimension(1:nsoil)   :: heat_capacity    ! heat capacity
+  real, dimension(1:nsoil)   :: thermal_cond     ! thermal conductivity
+  
+  real, dimension(1:nsoil)   :: a,b,c,d,d2       ! tridiagonal terms
+  
+  integer :: iz
+  
+  a = huge(1.0)
+  b = huge(1.0)
+  c = huge(1.0)
+  d = huge(1.0)
+  d2 = huge(1.0)
+  
+  heat_capacity = hcpct
+  thermal_cond(1:nsoil) = df(1:nsoil)
+  
+  print*, depth_interface
+  print*, depth_midpoint
+  print*, dz_interface
+  print*, dz_midpoint
+  
+  dz_interface(1) = 0 - depth_interface(1)
+  do iz = 2, nsoil
+    dz_interface(iz)    = depth_interface(iz-1) - depth_interface(iz)
+  end do
+  
+  do iz = 1, nsoil-1
+    dz_midpoint(iz)     = depth_midpoint(iz) - depth_midpoint(iz+1)
+  end do
+  dz_midpoint(nsoil)    = 2.0*(depth_midpoint(iz) - depth_interface(iz))
+  
+  do iz = 1, nsoil
+  
+    if(iz == nsoil) then
+      b(iz) = 1 + dt/heat_capacity(iz)/dz_midpoint(iz) *  thermal_cond(iz)/dz_interface(iz) 
+    else
+      b(iz) = 1 + dt/heat_capacity(iz)/dz_midpoint(iz) *  thermal_cond(iz)/dz_interface(iz) + dt/heat_capacity(iz)/dz_midpoint(iz) * thermal_cond(iz+1)/dz_interface(iz+1)
+    end if
+    
+    if(iz .ne. nsoil) c(iz) = - dt/heat_capacity(iz)/dz_midpoint(iz) * thermal_cond(iz+1)/dz_interface(iz+1)
+
+    if(iz .ne. 1)     a(iz) = - dt/heat_capacity(iz)/dz_midpoint(iz) * thermal_cond(iz)/dz_interface(iz)
+
+    if(iz == 1) then
+      d(iz) = stc(iz) + dt/heat_capacity(iz)/dz_midpoint(iz) *  thermal_cond(iz)/dz_interface(iz) * tg
+    else
+      d(iz) = stc(iz)
+    end if
+
+  end do
+  
+  call rosr12 (stc,a,b,c,d,d2,1,nsoil,0)
+
+end subroutine diffusion_implicit_interface

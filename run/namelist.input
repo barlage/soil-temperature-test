@@ -1,9 +1,49 @@
+!    midpoint                              interface
+!
+!-----------------  z0,tg,dt/dz_0,k0    -----------------  z0,tg
+!
+!- - - - - - - - -  zm1,t1              - - - - - - - - -  zm1,dt/dz_0,k0
+!
+!-----------------  z1,dt/dz_1,k1       -----------------  z1,t1
+!
+!- - - - - - - - -  zm2,t2              - - - - - - - - -  zm2,dt/dz_1,k1
+
+!-----------------  z3,dt/dz_3,k3       -----------------  z3,t3
+!
+!- - - - - - - - -  zm4,t4              - - - - - - - - -  zm4,dt/dz_3,k3
+!
+!-----------------  z4,dt/dz_4,k4       -----------------  z4,t4
+!
+!- - - - - - - - -  zbot,tbot           - - - - - - - - -  zm1,dt/dz_0,k0
+!
+!-----------------  z3,tg,dt/dz_3,k3    -----------------  z0,tg
+!
+!- - - - - - - - -  zm4,t4              - - - - - - - - -  zm1,dt/dz_0,k0
+!
+!              - - - - - - - - -  zm2,dt/dz_1,k1
+
+! structure_option
+!    1 = use preset zsoil from namelist
+!    2 = uniform levels with solution at midpoints
+!    3 = uniform levels with solution at interfaces
+!
+! solution_method
+!    0 = noahmp
+!    1 = diffusion_midpoint subroutine
+!    2 = diffusion_interface subroutine
+!
+! initial_theory (will overwrite other initial options)
+!    .true. = initial states determined from analytical solution
+!
+! initial_uniform
+!    .true. = initial states prescribed from namelist
+
 &timing ! and output and solution method
   dt              = 3600.0         ! timestep [seconds]
   maxtime         = 48!8760           ! total simulation time [hours] 26280 = 3 years; 8760 = 1 year
-  output_filename = "output_200l_2m_2m_1h_t1_imp.nc"
+  output_filename = "output_interface.nc"
   output_freq     = 1              ! output after this many timesteps
-  solution_method = 1              ! 0 = noahmp; 1 = standard diffusion eqn
+  solution_method = 2              ! 0 = noahmp; 1 = diffusion_midpoint subroutine; 2 = diffusion_interface subroutine
 /
 
 &forcing
@@ -14,17 +54,17 @@
 
 &structure
  isltyp           = 5       ! soil texture class
- nsoil            = 100       ! number of soil levels
+ nsoil            = 10       ! number of soil levels
  nsnow            = 0       ! number of snow levels
  tbot             = 300.0   ! deep soil temperature
  structure_option = 3       ! 1: use preset zsoil; 2: uniform levels; 3: uniform+interface
- soil_depth       = 1.0     ! total soil thickness [m] for structure_option > 1
- initial_theory    = .true.                  ! initial with theoretical temperature
+ soil_depth       = 1.0     ! total soil thickness [m] for structure_option > 1 (positive)
+ initial_theory    = .true. ! initial with theoretical temperature
 /
 
 &fixed_initial
- zsoil     = -0.1  , -0.4  , -1.0  , -2.0    ! depth to level interface [m]
- dzsnso    =  0.1  ,  0.3  ,  0.6  ,  1.0    ! level thickness [m]
+ zsoil     = -0.1  , -0.4  , -1.0  , -2.0    ! depth to level interface [m] (negative)
+ dzsnso    =  0.1  ,  0.3  ,  0.6  ,  1.0    ! level thickness [m] (positive)
  sice      =  0.0  ,  0.0  ,  0.0  ,  0.0    ! initial soil ice profile [vol]
  sh2o      =  0.3  ,  0.3  ,  0.3  ,  0.3    ! initial soil liquid profile [vol]
  stc       =  300.0,  300.0,  300.0,  300.0  ! initial soil temperature [K]
@@ -43,13 +83,17 @@
  qtz     =  0.920,   0.820,   0.600,   0.250,   0.100,   0.400,   0.600,   0.100,   0.350,   0.520,   0.100,   0.250
  maxsmc  =  0.339,   0.421,   0.434,   0.476,   0.484,   0.439,   0.404,   0.464,   0.465,   0.406,   0.468,   0.468
  csoil_data  = 2.00e+6      ! soil heat capacity [j m-3 k-1]
- zbot_data   =  -8.0        !< depth [m] of lower boundary soil temperature
+ zbot_data   =  -8.0        ! depth [m] of lower boundary soil temperature (negative)
 /
 
 &options
 
- bottom_temperature_option      = 1
- soil_boundary_condition_option = 3
-
+ bottom_temperature_option      = 1  ! lower boundary of soil temperature 
+                                     !  1 -> zero-flux
+                                     !  2 -> fixed temperaturea at depth zbot
+ soil_boundary_condition_option = 3  ! snow/soil temperature time scheme (only layer 1)
+                                     !  1 -> semi-implicit
+                                     !  2 -> full implicit (original noah)
+                                     !  3 -> same as 1 but adjust surface temperature for snow
 /
 

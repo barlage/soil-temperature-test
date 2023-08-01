@@ -39,26 +39,26 @@
 !    .true. = initial states prescribed from namelist
 
 &timing ! and output and solution method
-  dt              = 3600.0         ! timestep [seconds]
-  maxtime         = 48!8760           ! total simulation time [hours] 26280 = 3 years; 8760 = 1 year
+  dt              = 360.0         ! timestep [seconds]
+  maxtime         = 8760           ! total simulation time [hours] 26280 = 3 years; 8760 = 1 year
   output_filename = "output_interface.nc"
-  output_freq     = 1              ! output after this many timesteps
+  output_freq     = 10              ! output after this many timesteps
   solution_method = 2              ! 0 = noahmp; 1 = diffusion_midpoint subroutine; 2 = diffusion_interface subroutine
 /
 
 &forcing
   temperature_mean             = 300.0   ! mean daily surface temeperature [K]
   temperature_amplitude_daily  = 10.0    ! amplitude of daily surface temperature [K]
-  temperature_amplitude_annual = 0.0    ! amplitude of annual surface temperature [K]
+  temperature_amplitude_annual = 10.0    ! amplitude of annual surface temperature [K]
 /
 
 &structure
  isltyp           = 5       ! soil texture class
- nsoil            = 10       ! number of soil levels
+ nsoil            = 100       ! number of soil levels
  nsnow            = 0       ! number of snow levels
  tbot             = 300.0   ! deep soil temperature
  structure_option = 3       ! 1: use preset zsoil; 2: uniform levels; 3: uniform+interface
- soil_depth       = 1.0     ! total soil thickness [m] for structure_option > 1 (positive)
+ soil_depth       = 5.0     ! total soil thickness [m] for structure_option > 1 (positive)
  initial_theory    = .true. ! initial with theoretical temperature
 /
 
@@ -72,7 +72,7 @@
 
 &uniform_initial
  initial_uniform    = .true.         ! initial all levels the same
- initial_sh2o_value = 0.0            ! constant soil liquid value [vol]
+ initial_sh2o_value = 0.3            ! constant soil liquid value [vol]
  initial_sice_value = 0.0            ! constant soil ice value [vol]
  initial_stc_value  = 300.0          ! constant soil temperature [K]
 /

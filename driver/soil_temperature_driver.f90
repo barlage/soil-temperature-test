@@ -337,7 +337,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
            temperature_amplitude_annual * exp(depth_interface/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_interface/damp_depth_annual)
     end if
 
-    if(solution_method == 0) then  ! use noahmp method
+    if(solution_method == 0 .and. (structure_option == 1 .or. structure_option == 2)) then  ! use noahmp method
 
      ! top and bottom fluxes defined from previous timestep temperatures 
 
@@ -354,39 +354,35 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
                   tg        ,iloc    ,jloc    ,                            & !in
                   stc       ,errmsg  ,errflg     )                           !inout
 
-    elseif(solution_method == 1) then   ! use diffusion_implicit_midpoint subroutine
+    elseif(solution_method == 1 .and. (structure_option == 1 .or. structure_option == 2)) then   ! use diffusion_implicit_midpoint subroutine
 
-      if(structure_option == 1 .or. structure_option == 2) then
-
-        call diffusion_implicit_midpoint(nsoil, zsnso, dt, tbot, parameters%zbot, &
+      call diffusion_implicit_midpoint(nsoil, zsnso, dt, tbot, parameters%zbot, &
                                          df, hcpct, tg, stc, bottom_temperature_option)
     
      ! top and bottom fluxes defined from updated temperatures 
 
-        ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
+      ssoil = df(isnow+1)/(0.5*dzsnso(isnow+1)) * (tg - stc(isnow+1))
 
-        if(bottom_temperature_option == 1) then
-          bottom_flux = 0.0
-        elseif(bottom_temperature_option == 2) then
-          bottom_flux = df(nsoil)/(depth_midpoint(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
-        end if
+      if(bottom_temperature_option == 1) then
+        bottom_flux = 0.0
+      elseif(bottom_temperature_option == 2) then
+        bottom_flux = df(nsoil)/(depth_midpoint(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
+      end if
 
     elseif(solution_method == 2 .and. structure_option == 3) then ! use diffusion_implicit_interface
 
-        if(bottom_temperature_option /= 1) stop "only zero flux for the structure option 3"
-        call diffusion_implicit_interface(nsoil, depth_midpoint, depth_interface, dt, df, hcpct, tg, stc)
-    
-        ssoil = df(1)/depth_interface(1) * (tg - stc(1))
+      if(bottom_temperature_option /= 1) stop "only zero flux for the structure option 3"
 
-        bottom_flux = 0.0
-
-      end if
+      call diffusion_implicit_interface(nsoil, depth_midpoint, depth_interface, dt, df, hcpct, tg, stc)
     
+      ssoil = -1.0 * df(1)/depth_interface(1) * (tg - stc(1))
+
+      bottom_flux = 0.0
+
     else
     
       print *, "structure_option: ",structure_option
       print *, "solution_method: ",solution_method
-      print *, solution_method == 2 .and. structure_option == 3
       stop "no valid solution-structure combination"
 
     end if
@@ -538,11 +534,6 @@ subroutine diffusion_implicit_interface(nsoil, depth_midpoint, depth_interface, 
   
   heat_capacity = hcpct
   thermal_cond(1:nsoil) = df(1:nsoil)
-  
-  print*, depth_interface
-  print*, depth_midpoint
-  print*, dz_interface
-  print*, dz_midpoint
   
   dz_interface(1) = 0 - depth_interface(1)
   do iz = 2, nsoil

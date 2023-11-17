@@ -29,8 +29,9 @@
 !
 ! solution_method
 !    0 = noahmp
-!    1 = diffusion_midpoint subroutine
-!    2 = diffusion_interface subroutine
+!    1 = diffusion_implicit_midpoint subroutine
+!    2 = diffusion_implicit_interface subroutine
+!    3 = diffusion_cn_interface subroutine
 !
 ! initial_theory (will overwrite other initial options)
 !    .true. = initial states determined from analytical solution
@@ -41,9 +42,12 @@
 &timing ! and output and solution method
   dt              = 360.0         ! timestep [seconds]
   maxtime         = 8760           ! total simulation time [hours] 26280 = 3 years; 8760 = 1 year
-  output_filename = "output_interface.nc"
+  output_filename = "output_cn_interface.nc"
   output_freq     = 10              ! output after this many timesteps
-  solution_method = 2              ! 0 = noahmp; 1 = diffusion_midpoint subroutine; 2 = diffusion_interface subroutine
+  solution_method = 3              ! 0 = noahmp
+                                   ! 1 = diffusion_implicit_midpoint subroutine
+                                   ! 2 = diffusion_implicit_interface subroutine
+                                   ! 3 = diffusion_cn_interface subroutine
 /
 
 &forcing

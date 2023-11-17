@@ -75,6 +75,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real                            :: snowh
   real                            :: ssoil
   real                            :: tg
+  real                            :: tg_previous  ! previous timestep tg
   real                            :: ur      ! not used
   real                            :: lat     ! not used
   real                            :: z0m     ! not used
@@ -379,6 +380,16 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 
       bottom_flux = 0.0
 
+    elseif(solution_method == 3 .and. structure_option == 3) then ! use diffusion_implicit_interface
+
+      if(bottom_temperature_option /= 1) stop "only zero flux for the structure option 3"
+
+      call diffusion_cn_interface(nsoil, depth_midpoint, depth_interface, dt, df, hcpct, tg, tg_previous, stc)
+    
+      ssoil = -1.0 * df(1)/depth_interface(1) * (tg - stc(1))
+
+      bottom_flux = 0.0
+
     else
     
       print *, "structure_option: ",structure_option
@@ -386,6 +397,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
       stop "no valid solution-structure combination"
 
     end if
+    
+    tg_previous = tg
     
     storage_after = sum( hcpct(1:nsoil) * stc(1:nsoil) * dzsnso(1:nsoil) )
     
@@ -568,3 +581,80 @@ subroutine diffusion_implicit_interface(nsoil, depth_midpoint, depth_interface, 
   call rosr12 (stc,a,b,c,d,d2,1,nsoil,0)
 
 end subroutine diffusion_implicit_interface
+
+subroutine diffusion_cn_interface(nsoil, depth_midpoint, depth_interface, dt, df, hcpct, tg, tg_previous, stc)
+
+  use routines, only: rosr12
+  implicit none
+  
+  integer               , intent(in)    :: nsoil
+  real, dimension(nsoil), intent(in)    :: depth_midpoint   ! depth to midpoints (negative) [m]
+  real, dimension(nsoil), intent(in)    :: depth_interface  ! depth to interfaces (negative) [m]
+  real                  , intent(in)    :: dt               ! time step [s]
+  real, dimension(nsoil), intent(in)    :: df               ! thermal conductivity (W/m2/K)
+  real, dimension(nsoil), intent(in)    :: hcpct            ! heat capacity (J/m3/K)
+  real                  , intent(in)    :: tg               ! surface temperature (K)
+  real                  , intent(in)    :: tg_previous      ! previous surface temperature (K)
+  real, dimension(nsoil), intent(inout) :: stc              ! soil temperature (K)
+
+  ! local variables
+  
+  real, dimension(1:nsoil)   :: dz_interface     ! distance between interfaces
+  real, dimension(1:nsoil)   :: dz_midpoint      ! distance between midpoints
+  
+  real, dimension(1:nsoil)   :: heat_capacity    ! heat capacity
+  real, dimension(1:nsoil)   :: thermal_cond     ! thermal conductivity
+  
+  real, dimension(1:nsoil)   :: a,b,c,d,d2       ! tridiagonal terms
+  
+  integer :: iz
+  
+  a = huge(1.0)
+  b = huge(1.0)
+  c = huge(1.0)
+  d = huge(1.0)
+  d2 = huge(1.0)
+  
+  heat_capacity = hcpct
+  thermal_cond(1:nsoil) = df(1:nsoil)
+  
+  dz_interface(1) = 0 - depth_interface(1)
+  do iz = 2, nsoil
+    dz_interface(iz)    = depth_interface(iz-1) - depth_interface(iz)
+  end do
+  
+  do iz = 1, nsoil-1
+    dz_midpoint(iz)     = depth_midpoint(iz) - depth_midpoint(iz+1)
+  end do
+  dz_midpoint(nsoil)    = 2.0*(depth_midpoint(iz) - depth_interface(iz))
+  
+  do iz = 1, nsoil
+  
+    if(iz == nsoil) then
+      b(iz) = 1 + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) 
+    else
+      b(iz) = 1 + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 * thermal_cond(iz+1)/dz_interface(iz+1)
+    end if
+    
+    if(iz .ne. nsoil) c(iz) = - dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 * thermal_cond(iz+1)/dz_interface(iz+1)
+
+    if(iz .ne. 1)     a(iz) = - dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 * thermal_cond(iz)/dz_interface(iz)
+
+    if(iz == 1) then
+      d(iz) = stc(iz) + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) * tg &
+        + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) * (tg_previous-stc(iz)) &
+        + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz+1)/dz_interface(iz+1) * (stc(iz)-stc(iz+1))
+    elseif(iz == nsoil) then
+      d(iz) = stc(iz) &
+        + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) * (stc(iz-1)-stc(iz))
+    else
+      d(iz) = stc(iz) &
+        + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) * (stc(iz-1)-stc(iz)) &
+        + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz+1)/dz_interface(iz+1) * (stc(iz)-stc(iz+1))
+    end if
+
+  end do
+  
+  call rosr12 (stc,a,b,c,d,d2,1,nsoil,0)
+
+end subroutine diffusion_cn_interface

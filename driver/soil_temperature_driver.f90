@@ -76,6 +76,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   real                            :: ssoil
   real                            :: tg
   real                            :: tg_previous  ! previous timestep tg
+  real                            :: stc_previous
   real                            :: ur      ! not used
   real                            :: lat     ! not used
   real                            :: z0m     ! not used
@@ -230,6 +231,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   end do
 
   tg        = temperature_mean  ! surface temperature
+  tg_previous = temperature_mean  ! surface temperature
   isnow     = 0                 !
   snowh     = 0.0               !
   ssoil     = fillvalue         !
@@ -380,13 +382,15 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
 
       bottom_flux = 0.0
 
-    elseif(solution_method == 3 .and. structure_option == 3) then ! use diffusion_implicit_interface
+    elseif(solution_method == 3 .and. structure_option == 3) then ! use diffusion_cn_interface
 
       if(bottom_temperature_option /= 1) stop "only zero flux for the structure option 3"
+      
+      stc_previous = stc(1)
 
       call diffusion_cn_interface(nsoil, depth_midpoint, depth_interface, dt, df, hcpct, tg, tg_previous, stc)
     
-      ssoil = -1.0 * df(1)/depth_interface(1) * (tg - stc(1))
+      ssoil = -1.0 * (0.5*df(1)/depth_interface(1) * (tg - stc(1)) + 0.5*df(1)/depth_interface(1) * (tg_previous - stc_previous))
 
       bottom_flux = 0.0
 
@@ -643,14 +647,14 @@ subroutine diffusion_cn_interface(nsoil, depth_midpoint, depth_interface, dt, df
     if(iz == 1) then
       d(iz) = stc(iz) + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) * tg &
         + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) * (tg_previous-stc(iz)) &
-        + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz+1)/dz_interface(iz+1) * (stc(iz)-stc(iz+1))
+        - dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz+1)/dz_interface(iz+1) * (stc(iz)-stc(iz+1))
     elseif(iz == nsoil) then
       d(iz) = stc(iz) &
         + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) * (stc(iz-1)-stc(iz))
     else
       d(iz) = stc(iz) &
         + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz)/dz_interface(iz) * (stc(iz-1)-stc(iz)) &
-        + dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz+1)/dz_interface(iz+1) * (stc(iz)-stc(iz+1))
+        - dt/heat_capacity(iz)/dz_midpoint(iz)/2.0 *  thermal_cond(iz+1)/dz_interface(iz+1) * (stc(iz)-stc(iz+1))
     end if
 
   end do

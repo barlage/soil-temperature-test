@@ -109,6 +109,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   integer :: simulation_time    ! total time into simulation
   integer :: ntime      = 0     ! number of timesteps to run
   real, allocatable, dimension(:) :: theoretical_temperature   ! estimate T from diffusion solution
+  real                            :: theoretical_top_flux
   real, allocatable, dimension(:) :: depth_midpoint            ! calculation node depth
   real, allocatable, dimension(:) :: depth_interface           ! calculation node depth
   real    :: damp_depth_daily
@@ -244,6 +245,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   df        = fillvalue
   hcpct     = fillvalue
   theoretical_temperature = fillvalue
+  theoretical_top_flux    = fillvalue
   simulation_time         = 0.0
   bottom_flux             = fillvalue
   energy_balance          = fillvalue
@@ -278,12 +280,14 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
       stc = temperature_mean + &
             temperature_amplitude_daily  * exp(depth_midpoint/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_midpoint/damp_depth_daily) + &
             temperature_amplitude_annual * exp(depth_midpoint/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_midpoint/damp_depth_annual)
+      theoretical_top_flux = -1.0 * df(1)/depth_midpoint(1) * (tg - stc(1))
     elseif(structure_option == 3) then
       stc = temperature_mean + &
             temperature_amplitude_daily  * exp(depth_interface/damp_depth_daily)  * sin(2*pi/period_daily*simulation_time  + depth_interface/damp_depth_daily) + &
             temperature_amplitude_annual * exp(depth_interface/damp_depth_annual) * sin(2*pi/period_annual*simulation_time + depth_interface/damp_depth_annual)
+      theoretical_top_flux = -1.0 * df(1)/depth_interface(1) * (tg - stc(1))
     end if
-
+    
   end if
 
 !---------------------------------------------------------------------
@@ -293,7 +297,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
   if(mod(ntime,output_freq) /= 0) stop "ntime must be divisible by output_freq"
   call initialize_output(output_filename, ntime+1, output_freq, nsoil)
   call add_to_output(0,output_freq,nsoil,tg,stc(1:nsoil),df(1:nsoil),hcpct(1:nsoil),ssoil, &
-                       theoretical_temperature,energy_balance, bottom_flux)
+                       theoretical_temperature,energy_balance, bottom_flux,theoretical_top_flux)
 
 !---------------------------------------------------------------------
 ! start the time loop
@@ -357,6 +361,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
                   tg        ,iloc    ,jloc    ,                            & !in
                   stc       ,errmsg  ,errflg     )                           !inout
 
+      theoretical_top_flux = -1.0 * df(1)/depth_midpoint(1) * (tg - theoretical_temperature(1))
+
     elseif(solution_method == 1 .and. (structure_option == 1 .or. structure_option == 2)) then   ! use diffusion_implicit_midpoint subroutine
 
       call diffusion_implicit_midpoint(nsoil, zsnso, dt, tbot, parameters%zbot, &
@@ -372,6 +378,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
         bottom_flux = df(nsoil)/(depth_midpoint(nsoil)-parameters%zbot) * (stc(nsoil)-tbot)
       end if
 
+      theoretical_top_flux = -1.0 * df(1)/depth_midpoint(1) * (tg - theoretical_temperature(1))
+
     elseif(solution_method == 2 .and. structure_option == 3) then ! use diffusion_implicit_interface
 
       if(bottom_temperature_option /= 1) stop "only zero flux for the structure option 3"
@@ -381,6 +389,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
       ssoil = -1.0 * df(1)/depth_interface(1) * (tg - stc(1))
 
       bottom_flux = 0.0
+
+      theoretical_top_flux = -1.0 * df(1)/depth_interface(1) * (tg - theoretical_temperature(1))
 
     elseif(solution_method == 3 .and. structure_option == 3) then ! use diffusion_cn_interface
 
@@ -393,6 +403,8 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
       ssoil = -1.0 * (0.5*df(1)/depth_interface(1) * (tg - stc(1)) + 0.5*df(1)/depth_interface(1) * (tg_previous - stc_previous))
 
       bottom_flux = 0.0
+
+      theoretical_top_flux = -1.0 * df(1)/depth_interface(1) * (tg - theoretical_temperature(1))
 
     else
     
@@ -420,7 +432,7 @@ use routines, only: tsnosoi, thermoprop, noahmp_parameters, noahmp_options
     if(mod(itime,output_freq) == 0) then
 
       call add_to_output(itime,output_freq,nsoil,tg,stc(1:nsoil),df(1:nsoil),hcpct(1:nsoil),ssoil, &
-                         theoretical_temperature,energy_balance, bottom_flux)
+                         theoretical_temperature,energy_balance, bottom_flux,theoretical_top_flux)
     end if
     
   end do ! time loop

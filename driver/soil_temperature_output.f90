@@ -78,6 +78,16 @@ contains
       iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
        if (iret /= nf90_noerr) call handle_err(iret,"define ground_heat attribute")
 
+    iret = nf90_def_var(ncid, "theoretical_top_flux",           NF90_DOUBLE, time_dim, varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define theory ground_heat variable")
+      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
+       if (iret /= nf90_noerr) call handle_err(iret,"define theory ground_heat attribute")
+
+    iret = nf90_def_var(ncid, "error_top_flux",           NF90_DOUBLE, time_dim, varid)
+     if (iret /= nf90_noerr) call handle_err(iret,"define error ground_heat variable")
+      iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
+       if (iret /= nf90_noerr) call handle_err(iret,"define error ground_heat attribute")
+
     iret = nf90_def_var(ncid, "bottom_flux",            NF90_DOUBLE, time_dim, varid)
      if (iret /= nf90_noerr) call handle_err(iret,"define bottom_flux variable")
       iret = nf90_put_att(ncid, varid, "_FillValue", fillvalue)
@@ -99,7 +109,8 @@ contains
                             ground_heat,          &
                             theoretical_temperature,&
                             energy_balance,       &
-                            bottom_flux           )
+                            bottom_flux,          &
+                            theoretical_top_flux  )
 
     implicit none
 
@@ -111,6 +122,7 @@ contains
      real                   :: ground_heat
      real                   :: energy_balance
      real                   :: bottom_flux
+     real                   :: theoretical_top_flux
      real, dimension(nsoil) :: temperature_soil
      real, dimension(nsoil) :: thermal_conductivity
      real, dimension(nsoil) :: heat_capacity
@@ -137,6 +149,11 @@ contains
       if (iret /= nf90_noerr) call handle_err(iret,"inquire ground_heat variable")
      iret = nf90_put_var(ncid, varid, ground_heat,           start=(/itime+1/))
       if (iret /= nf90_noerr) call handle_err(iret,"put ground_heat variable")
+
+     iret = nf90_inq_varid(ncid, "theoretical_top_flux", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire theoretical_ground_heat variable")
+     iret = nf90_put_var(ncid, varid, theoretical_top_flux,           start=(/itime+1/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put theoretical_ground_heat variable")
 
      iret = nf90_inq_varid(ncid, "bottom_flux", varid)
       if (iret /= nf90_noerr) call handle_err(iret,"inquire bottom_flux variable")
@@ -168,6 +185,11 @@ contains
       if (iret /= nf90_noerr) call handle_err(iret,"inquire error_soiltemp variable")
      iret = nf90_put_var(ncid, varid,  temperature_soil-theoretical_temperature,     start=(/itime+1,1/), count=(/1,nsoil/))
       if (iret /= nf90_noerr) call handle_err(iret,"put error_soiltemp variable")
+
+     iret = nf90_inq_varid(ncid, "error_top_flux", varid)
+      if (iret /= nf90_noerr) call handle_err(iret,"inquire error_top_flux variable")
+     iret = nf90_put_var(ncid, varid,  ground_heat-theoretical_top_flux,     start=(/itime+1/))
+      if (iret /= nf90_noerr) call handle_err(iret,"put error_top_flux variable")
   end if
   
    end subroutine add_to_output
